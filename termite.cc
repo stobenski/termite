@@ -847,9 +847,6 @@ gboolean key_press_cb(VteTerminal *vte, GdkEventKey *event, keybind_info *info) 
                 case GDK_KEY_Left:
                     move_backward_word(vte, &info->select);
                     return TRUE;
-                case GDK_KEY_Insert:
-                    vte_terminal_paste_clipboard(vte);
-                    return TRUE;
                 case GDK_KEY_Right:
                     move_forward_word(vte, &info->select);
                     return TRUE;
@@ -1019,6 +1016,15 @@ gboolean key_press_cb(VteTerminal *vte, GdkEventKey *event, keybind_info *info) 
                 return TRUE;
             case GDK_KEY_equal:
                 reset_font_scale(vte, info->config.font_scale);
+                return TRUE;
+            default:
+                if (modify_key_feed(event, info, modify_table))
+                    return TRUE;
+        }
+    } else if (modifiers == GDK_SHIFT_MASK) {
+        switch (gdk_keyval_to_lower(event->keyval)) {
+            case GDK_KEY_Insert:
+                vte_terminal_paste_clipboard(vte);
                 return TRUE;
             default:
                 if (modify_key_feed(event, info, modify_table))
