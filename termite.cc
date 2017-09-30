@@ -847,6 +847,9 @@ gboolean key_press_cb(VteTerminal *vte, GdkEventKey *event, keybind_info *info) 
                 case GDK_KEY_Left:
                     move_backward_word(vte, &info->select);
                     return TRUE;
+                case GDK_KEY_Insert:
+                    vte_terminal_paste_clipboard(vte);
+                    return TRUE;
                 case GDK_KEY_Right:
                     move_forward_word(vte, &info->select);
                     return TRUE;
@@ -989,12 +992,6 @@ gboolean key_press_cb(VteTerminal *vte, GdkEventKey *event, keybind_info *info) 
                 overlay_show(&info->panel, overlay_mode::urlselect, nullptr);
                 exit_command_mode(vte, &info->select);
                 return TRUE;
-            case GDK_KEY_c:
-                vte_terminal_copy_clipboard(vte);
-                return TRUE;
-            case GDK_KEY_v:
-                vte_terminal_paste_clipboard(vte);
-                return TRUE;
             case GDK_KEY_r:
                 reload_config();
                 return TRUE;
@@ -1011,11 +1008,11 @@ gboolean key_press_cb(VteTerminal *vte, GdkEventKey *event, keybind_info *info) 
             return TRUE;
     } else if (modifiers == GDK_CONTROL_MASK) {
         switch (gdk_keyval_to_lower(event->keyval)) {
-            case GDK_KEY_Tab:
-                overlay_show(&info->panel, overlay_mode::completion, vte);
-                return TRUE;
             case GDK_KEY_plus:
                 increase_font_scale(vte);
+                return TRUE;
+            case GDK_KEY_Insert:
+                vte_terminal_copy_clipboard(vte);
                 return TRUE;
             case GDK_KEY_minus:
                 decrease_font_scale(vte);

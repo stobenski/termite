@@ -1,3 +1,30 @@
+DISCLAIMER
+==========
+
+Differences between `thestinger/termite <https://github.com/thestinger/termite>`_ and this fork:
+
+Added hotkeys (INSERT mode):
+----------------------------
+
++----------------------+---------------------------------------------+
+| ``ctrl-insert``      | copy to CLIPBOARD                           |
++----------------------+---------------------------------------------+
+| ``shift-insert``     | paste from CLIPBOARD                        |
++----------------------+---------------------------------------------+
+
+Removed hotkeys (INSERT mode):
+------------------------------
+
++----------------------+---------------------------------------------+
+| ``ctrl-shift-c``     | copy to CLIPBOARD                           |
++----------------------+---------------------------------------------+
+| ``ctrl-shift-v``     | paste from CLIPBOARD                        |
++----------------------+---------------------------------------------+
+| ``ctrl-tab``         | start scrollback completion                 |
++----------------------+---------------------------------------------+
+
+****
+
 A keyboard-centric VTE-based terminal, aimed at use within a window manager
 with tiling and/or tabbing support.
 
@@ -41,13 +68,11 @@ INSERT MODE
 +----------------------+---------------------------------------------+
 | ``ctrl-shift-r``     | reload configuration file                   |
 +----------------------+---------------------------------------------+
-| ``ctrl-shift-c``     | copy to CLIPBOARD                           |
+| ``ctrl-insert``      | copy to CLIPBOARD                           |
 +----------------------+---------------------------------------------+
-| ``ctrl-shift-v``     | paste from CLIPBOARD                        |
+| ``shift-insert``     | paste from CLIPBOARD                        |
 +----------------------+---------------------------------------------+
 | ``ctrl-shift-u``     | unicode input (standard GTK binding)        |
-+----------------------+---------------------------------------------+
-| ``ctrl-tab``         | start scrollback completion                 |
 +----------------------+---------------------------------------------+
 | ``ctrl-shift-space`` | start selection mode                        |
 +----------------------+---------------------------------------------+
