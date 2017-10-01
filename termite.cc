@@ -161,10 +161,11 @@ static void overlay_show(search_panel_info *info, overlay_mode mode, VteTerminal
 static void get_vte_padding(VteTerminal *vte, int *left, int *top, int *right, int *bottom);
 static char *check_match(VteTerminal *vte, GdkEventButton *event);
 static void load_config(GtkWindow *window, VteTerminal *vte, GtkWidget *scrollbar, GtkWidget *hbox,
-                        config_info *info, char **geometry, char **icon, bool *show_scrollbar);
+                        config_info *info, char **geometry, char **icon, bool *show_scrollbar,
+                        gboolean *has_alpha);
 static void set_config(GtkWindow *window, VteTerminal *vte, GtkWidget *scrollbar, GtkWidget *hbox,
                        config_info *info, char **geometry, char **icon, bool *show_scrollbar,
-                       GKeyFile *config);
+                       GKeyFile *config, gboolean *has_alpha);
 static long first_row(VteTerminal *vte);
 
 static std::function<void ()> reload_config;
@@ -1333,14 +1334,19 @@ get_config_cairo_color(GKeyFile *config, const char *group, const char *key) {
     return {};
 }
 
-static void load_theme(GtkWindow *window, VteTerminal *vte, GKeyFile *config, hint_info &hints) {
+static void load_theme(GtkWindow *window, VteTerminal *vte, GKeyFile *config, hint_info &hints, gboolean *has_alpha) {
     std::array<GdkRGBA, 256> palette;
     char color_key[] = "color000";
+
+    *has_alpha = FALSE;
 
     for (unsigned i = 0; i < palette.size(); i++) {
         snprintf(color_key, sizeof(color_key), "color%u", i);
         if (auto color = get_config_color(config, "colors", color_key)) {
             palette[i] = *color;
+            if(color->alpha != 1){
+                *has_alpha = TRUE;
+            }
         } else if (i < 16) {
             palette[i].blue = (((i & 4) ? 0xc000 : 0) + (i > 7 ? 0x3fff: 0)) / 65535.0;
             palette[i].green = (((i & 2) ? 0xc000 : 0) + (i > 7 ? 0x3fff : 0)) / 65535.0;
@@ -1367,22 +1373,37 @@ static void load_theme(GtkWindow *window, VteTerminal *vte, GKeyFile *config, hi
     if (auto color = get_config_color(config, "colors", "foreground")) {
         vte_terminal_set_color_foreground(vte, &*color);
         vte_terminal_set_color_bold(vte, &*color);
+        if(color->alpha != 1){
+            *has_alpha = TRUE;
+        }
     }
     if (auto color = get_config_color(config, "colors", "foreground_bold")) {
         vte_terminal_set_color_bold(vte, &*color);
+        if(color->alpha != 1){
+            *has_alpha = TRUE;
+        }
     }
     if (auto color = get_config_color(config, "colors", "background")) {
         vte_terminal_set_color_background(vte, &*color);
         override_background_color(GTK_WIDGET(window), &*color);
+        if(color->alpha != 1){
+            *has_alpha = TRUE;
+        }
     }
     if (auto color = get_config_color(config, "colors", "cursor")) {
         vte_terminal_set_color_cursor(vte, &*color);
+        if(color->alpha != 1){
+            *has_alpha = TRUE;
+        }
     }
     if (auto color = get_config_color(config, "colors", "cursor_foreground")) {
         vte_terminal_set_color_cursor_foreground(vte, &*color);
     }
     if (auto color = get_config_color(config, "colors", "highlight")) {
         vte_terminal_set_color_highlight(vte, &*color);
+        if(color->alpha != 1){
+            *has_alpha = TRUE;
+        }
     }
 
     if (auto s = get_config_string(config, "hints", "font")) {
@@ -1398,11 +1419,34 @@ static void load_theme(GtkWindow *window, VteTerminal *vte, GKeyFile *config, hi
     hints.padding = get_config_double(config, "hints", "padding", 5).get_value_or(2.0);
     hints.border_width = get_config_double(config, "hints", "border_width").get_value_or(1.0);
     hints.roundness = get_config_double(config, "hints", "roundness").get_value_or(1.5);
+
+    double alpha;
+    cairo_pattern_get_rgba(hints.fg,nullptr,nullptr,nullptr,&alpha);
+    if(alpha !=1){
+        *has_alpha = TRUE;
+    }
+    cairo_pattern_get_rgba(hints.bg,nullptr,nullptr,nullptr,&alpha);
+    if(alpha !=1){
+        *has_alpha = TRUE;
+    }
+    cairo_pattern_get_rgba(hints.af,nullptr,nullptr,nullptr,&alpha);
+    if(alpha !=1){
+        *has_alpha = TRUE;
+    }
+    cairo_pattern_get_rgba(hints.ab,nullptr,nullptr,nullptr,&alpha);
+    if(alpha !=1){
+        *has_alpha = TRUE;
+    }
+    cairo_pattern_get_rgba(hints.border,nullptr,nullptr,nullptr,&alpha);
+    if(alpha !=1){
+        *has_alpha = TRUE;
+    }
+
 }
 
 static void load_config(GtkWindow *window, VteTerminal *vte, GtkWidget *scrollbar,
                         GtkWidget *hbox, config_info *info, char **geometry, char **icon,
-                        bool *show_scrollbar) {
+                        bool *show_scrollbar, gboolean *has_alpha) {
     const std::string default_path = "/termite/config";
     GKeyFile *config = g_key_file_new();
     GError *error = nullptr;
@@ -1437,14 +1481,15 @@ static void load_config(GtkWindow *window, VteTerminal *vte, GtkWidget *scrollba
     }
 
     if (loaded) {
-        set_config(window, vte, scrollbar, hbox, info, geometry, icon, show_scrollbar, config);
+        set_config(window, vte, scrollbar, hbox, info, geometry, icon, show_scrollbar, config,
+                   has_alpha);
     }
     g_key_file_free(config);
 }
 
 static void set_config(GtkWindow *window, VteTerminal *vte, GtkWidget *scrollbar, GtkWidget *hbox,
                        config_info *info, char **geometry, char **icon, bool *show_scrollbar_ptr,
-                       GKeyFile *config) {
+                       GKeyFile *config, gboolean *has_alpha) {
     if (geometry) {
         if (auto s = get_config_string(config, "options", "geometry")) {
             *geometry = *s;
@@ -1561,7 +1606,7 @@ static void set_config(GtkWindow *window, VteTerminal *vte, GtkWidget *scrollbar
         *show_scrollbar_ptr = show_scrollbar;
     }
 
-    load_theme(window, vte, config, info->hints);
+    load_theme(window, vte, config, info->hints, has_alpha);
 }/*}}}*/
 
 static void exit_with_status(VteTerminal *, int status) {
@@ -1588,11 +1633,11 @@ static char *get_user_shell_with_fallback() {
     return g_strdup("/bin/sh");
 }
 
-static void on_alpha_screen_changed(GtkWindow *window, GdkScreen *, void *) {
+static void on_alpha_screen_changed(GtkWindow *window, gboolean *has_alpha) {
     GdkScreen *screen = gtk_widget_get_screen(GTK_WIDGET(window));
     GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
 
-    if (!visual)
+    if (!(*has_alpha) || !visual)
         visual = gdk_screen_get_system_visual(screen);
 
     gtk_widget_set_visual(GTK_WIDGET(window), visual);
@@ -1602,7 +1647,7 @@ int main(int argc, char **argv) {
     GError *error = nullptr;
     const char *const term = "xterm-termite";
     char *directory = nullptr;
-    gboolean version = FALSE, hold = FALSE;
+    gboolean version = FALSE, hold = FALSE, has_alpha = FALSE;
 
     GOptionContext *context = g_option_context_new(nullptr);
     char *role = nullptr, *geometry = nullptr, *execute = nullptr, *config_file = nullptr;
@@ -1694,11 +1739,12 @@ int main(int argc, char **argv) {
     };
 
     load_config(GTK_WINDOW(window), vte, scrollbar, hbox, &info.config,
-                geometry ? nullptr : &geometry, icon ? nullptr : &icon, &show_scrollbar);
+                geometry ? nullptr : &geometry, icon ? nullptr : &icon, &show_scrollbar,
+                &has_alpha);
 
     reload_config = [&]{
         load_config(GTK_WINDOW(window), vte, scrollbar, hbox, &info.config,
-                    nullptr, nullptr, nullptr);
+                    nullptr, nullptr, nullptr, &has_alpha);
     };
     signal(SIGUSR1, [](int){ reload_config(); });
 
@@ -1739,8 +1785,8 @@ int main(int argc, char **argv) {
     g_signal_connect(window, "focus-in-event",  G_CALLBACK(focus_cb), nullptr);
     g_signal_connect(window, "focus-out-event", G_CALLBACK(focus_cb), nullptr);
 
-    on_alpha_screen_changed(GTK_WINDOW(window), nullptr, nullptr);
-    g_signal_connect(window, "screen-changed", G_CALLBACK(on_alpha_screen_changed), nullptr);
+    on_alpha_screen_changed(GTK_WINDOW(window), &has_alpha);
+    g_signal_connect(window, "screen-changed", G_CALLBACK(on_alpha_screen_changed), &has_alpha);
 
     if (info.config.fullscreen) {
         g_signal_connect(window, "window-state-event", G_CALLBACK(window_state_cb), &info);
